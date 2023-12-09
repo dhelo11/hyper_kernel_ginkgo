@@ -278,15 +278,36 @@ static int help(struct sk_buff *skb, unsigned int protoff,
 	data = ib_ptr;
 	data_limit = ib_ptr + skb->len - dataoff;
 
-	/* If packet is coming from IRC server
-	 * parse the packet for different type of
-	 * messages (MOTD,NICK etc) and process
-	 * accordingly
+
+	/* Skip any whitespace */
+	while (data < data_limit - 10) {
+		if (*data == ' ' || *data == '\r' || *data == '\n')
+			data++;
+		else
+			break;
+	}
+
+	/* strlen("PRIVMSG x ")=10 */
+	if (data < data_limit - 10) {
+		if (strncasecmp("PRIVMSG ", data, 8))
+		data += 8;
+	}
+
+	/* strlen(" :\1DCC SENT t AAAAAAAA P\1\n")=26
+	 * 7+MINMATCHLEN+strlen("t AAAAAAAA P\1\n")=26
 	 */
-	if (dir == IP_CT_DIR_REPLY) {
-		/* strlen("NICK xxxxxx")
-		 * 5+strlen("xxxxxx")=1 (minimum length of nickname)
-		 */
+	while (data < data_limit - (21 + MINMATCHLEN)) {
+		/* Find first " :", the start of message */
+		if (memcmp(data, " :", 2)) {
+			data++;
+			continue;
+		}
+		data += 2;
+
+		/* then check that place only for the DCC command */
+		if (memcmp(data, "\1DCC ", 5))
+		data += 5;
+		/* we have at least (21+MINMATCHLEN)-(2+5) bytes valid data left */
 
 		while (data < data_limit - 6) {
 			if (memcmp(data, " MOTD ", 6)) {
@@ -301,7 +322,6 @@ static int help(struct sk_buff *skb, unsigned int protoff,
 			if (temp && !temp->conn_to_server)
 				temp->conn_to_server = true;
 			ret = NF_ACCEPT;
-			goto out;
 		}
 
 		/* strlen("NICK :xxxxxx")
@@ -321,7 +341,7 @@ static int help(struct sk_buff *skb, unsigned int protoff,
 			pr_debug("DCC %s detected\n", dccprotos[i]);
 
 			/* we have at least
-			 * (19+MINMATCHLEN)-5-dccprotos[i].matchlen bytes valid
+			 * (21+MINMATCHLEN)-7-dccprotos[i].matchlen bytes valid
 			 * data left (== 14/13 bytes) */
 			if (parse_dcc(data, data_limit, &dcc_ip,
 				       &dcc_port, &addr_beg_p, &addr_end_p)) {
@@ -348,7 +368,7 @@ static int help(struct sk_buff *skb, unsigned int protoff,
 				nf_ct_helper_log(skb, ct,
 						 "cannot alloc expectation");
 				ret = NF_DROP;
-				goto out;
+				
 
 			}
 			tuple = &ct->tuplehash[!dir].tuple;
@@ -370,11 +390,10 @@ static int help(struct sk_buff *skb, unsigned int protoff,
 			}
 			/*NICK during registration*/
 			ret = NF_ACCEPT;
-			goto out;
+			
 		}
 	}
 
-	else{
 		/*Parsing NICK command from client to create an entry
 		 * strlen("NICK xxxxxx")
 		 * 5+strlen("xxxxxx")=1 (minimum length of nickname)
@@ -388,7 +407,7 @@ static int help(struct sk_buff *skb, unsigned int protoff,
 			}
 			data += 5;
 			ret = handle_nickname(ct, dir, data);
-			goto out;
+			
 		}
 
 		data = ib_ptr;
@@ -408,7 +427,7 @@ static int help(struct sk_buff *skb, unsigned int protoff,
 				kfree(temp);
 			}
 			ret = NF_ACCEPT;
-			goto out;
+			
 		}
 		/* strlen("\1DCC SENT t AAAAAAAA P\1\n")=24
 		 * 5+MINMATCHLEN+strlen("t AAAAAAAA P\1\n")=14
@@ -468,7 +487,7 @@ static int help(struct sk_buff *skb, unsigned int protoff,
 					nf_ct_helper_log(skb, ct,
 							 "cannot alloc expectation");
 					ret = NF_DROP;
-					goto out;
+					
 				}
 				tuple = &ct->tuplehash[!dir].tuple;
 				port = htons(dcc_port);
@@ -518,13 +537,9 @@ static int help(struct sk_buff *skb, unsigned int protoff,
 					ret = NF_DROP;
 				}
 				nf_ct_expect_put(exp);
-				goto out;
+				
 			}
 		}
-	}
- out:
-	spin_unlock_bh(&irc_buffer_lock);
-	return ret;
 }
 
 static struct nf_conntrack_helper irc[MAX_PORTS] __read_mostly;
