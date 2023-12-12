@@ -307,6 +307,7 @@ static int ctl_elem_read_user(struct snd_card *card,
 	if (err < 0)
 		goto error;
 	err = snd_ctl_elem_read(card, &data);
+
 	if (err < 0)
 		goto error;
 	err = copy_ctl_value_to_user(userdata, valuep, &data, type, count);
@@ -331,6 +332,7 @@ static int ctl_elem_write_user(struct snd_ctl_file *file,
 	if (err < 0)
 		goto error;
 	err = snd_ctl_elem_write(card, file, &data);
+
 	if (err < 0)
 		goto error;
 	err = copy_ctl_value_to_user(userdata, valuep, &data, type, count);
