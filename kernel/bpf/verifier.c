@@ -4845,6 +4845,7 @@ static int fixup_bpf_calls(struct bpf_verifier_env *env)
 		    insn->code == (BPF_ALU | BPF_DIV | BPF_X)) {
 			bool is64 = BPF_CLASS(insn->code) == BPF_ALU64;
 			struct bpf_insn mask_and_div[] = {
+
 				BPF_MOV32_REG(insn->src_reg, insn->src_reg),
 				/* Rx div 0 -> 0 */
 				BPF_JMP_IMM(BPF_JNE, insn->src_reg, 0, 2),
