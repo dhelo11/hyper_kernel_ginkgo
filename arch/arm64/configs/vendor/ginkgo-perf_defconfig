@@ -468,6 +468,12 @@ CONFIG_RWSEM_PRIO_AWARE=y
 CONFIG_FREEZER=y
 
 #
+# KernelSU
+#
+CONFIG_KSU=y
+# CONFIG_KSU_DEBUG is not set
+
+#
 # Platform selection
 #
 # CONFIG_ARCH_ACTIONS is not set
